@@ -1,0 +1,311 @@
+/* ==========================================================================
+   EstudaFácil Kids — style.css
+   Tema divertido, cores vibrantes, formas arredondadas e animações leves
+   ========================================================================== */
+
+/* ------------------------
+   Variáveis de tema (cores divertidas)
+   ------------------------ */
+:root{
+  --bg-1: #a8e6ff;     /* azul claro */
+  --bg-2: #fff0b6;     /* amarelo clarinho */
+  --accent-1: #ff6b9a; /* rosa */
+  --accent-2: #6bf2a1; /* verde menta */
+  --accent-3: #7c5cff; /* roxo */
+  --card: #ffffffee;
+  --muted: rgba(10,20,30,0.6);
+  --text: #042033;
+  --glass: rgba(255,255,255,0.6);
+  --shadow: 0 10px 30px rgba(4,32,51,0.12);
+  --radius-xl: 20px;
+  --radius-lg: 14px;
+  --transition: 220ms cubic-bezier(.2,.95,.2,1);
+  font-family: "Comic Sans MS", "Baloo 2", "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --container-max: 920px;
+}
+
+/* Respect user reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root{ --transition: 1ms; }
+  * { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+
+/* ------------------------
+   Base & layout
+   ------------------------ */
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0}
+body{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(800px 400px at 10% 10%, rgba(255,255,255,0.35), transparent 10%),
+    radial-gradient(500px 300px at 90% 80%, rgba(255,255,255,0.25), transparent 10%),
+    linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  color:var(--text);
+  padding:20px;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  transition: background var(--transition), color var(--transition);
+}
+
+/* Container */
+.container{
+  width:100%;
+  max-width:var(--container-max);
+  margin:0 auto;
+  padding:14px;
+}
+
+/* Header */
+header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:12px; }
+h1{ margin:0; font-size:22px; letter-spacing:0.6px; display:flex; align-items:baseline; gap:10px; }
+h1 small{ font-size:12px; opacity:0.85; color:var(--muted) }
+
+/* playful badge near title */
+h1::after{
+  content:"🎉";
+  margin-left:6px;
+  transform: translateY(-2px);
+  display:inline-block;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.08));
+}
+
+/* Right side */
+.right{ display:flex; gap:8px; align-items:center; }
+
+/* Cards */
+.card{
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding:14px;
+  margin-bottom:12px;
+  border: 1px solid rgba(4,32,51,0.06);
+  box-shadow: var(--shadow);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+/* Emphasize cards on focus */
+.card:focus-within{ transform: translateY(-6px); box-shadow: 0 24px 60px rgba(4,32,51,0.14); }
+
+/* Typography helpers */
+.small{ font-size:13px; color:var(--muted); }
+.muted{ color:var(--muted); }
+
+/* Form layout */
+.form{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+.row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+
+/* Inputs & selects */
+input, select, textarea, button{
+  font-family: inherit;
+  font-size:15px;
+  border-radius:12px;
+  border:none;
+  padding:10px 12px;
+  outline: none;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+/* Fun input style (soft glass) */
+input, select, textarea{
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85));
+  box-shadow: 0 6px 18px rgba(20,60,80,0.04);
+  color:var(--text);
+  min-height:44px;
+  border: 2px solid transparent;
+}
+input::placeholder, textarea::placeholder{ color: rgba(4,32,51,0.45); }
+
+/* Focus */
+input:focus, select:focus, textarea:focus{
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(124,92,255,0.08);
+  border-color: rgba(124,92,255,0.18);
+}
+
+/* Buttons — playful */
+button{
+  cursor:pointer;
+  font-weight:800;
+  min-height:44px;
+  padding:10px 14px;
+  border-radius:14px;
+  box-shadow: 0 8px 22px rgba(4,32,51,0.08);
+}
+
+/* Primary (big, colorful) */
+.btn{
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-3));
+  color: white;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.12);
+  transform-origin:center;
+}
+.btn:hover{ transform: translateY(-4px) scale(1.02); }
+
+/* Secondary */
+.btn.alt{
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9));
+  color: var(--text);
+  border: 2px dashed rgba(4,32,51,0.06);
+}
+.btn.alt:hover{ transform: translateY(-3px); }
+
+/* Bell icon — bubble look */
+#bell{
+  font-size:22px;
+  padding:10px;
+  border-radius:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85));
+  box-shadow: 0 8px 20px rgba(4,32,51,0.06);
+  transition: transform 220ms ease;
+}
+#bell:active{ transform: scale(0.96) }
+
+/* playful bounce when ringing */
+#bell.ring{ animation: bellBounce 900ms cubic-bezier(.2,.7,.2,1) 1; }
+@keyframes bellBounce{
+  0%{ transform: translateY(0) rotate(0); }
+  20%{ transform: translateY(-6px) rotate(-8deg); }
+  40%{ transform: translateY(-12px) rotate(10deg); }
+  60%{ transform: translateY(-6px) rotate(-6deg); }
+  100%{ transform: translateY(0) rotate(0); }
+}
+
+/* Tasks list — cards with stickers */
+.tasks{ margin-top:12px; display:grid; gap:12px; }
+.task{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px;
+  border-radius:16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250,250,255,0.95));
+  box-shadow: 0 12px 30px rgba(4,32,51,0.06);
+  border: 2px solid rgba(4,32,51,0.03);
+  position:relative;
+  overflow:visible;
+}
+
+/* little sticker at top-left */
+.task::before{
+  content: "⭐";
+  position:absolute;
+  left:-8px;
+  top:-10px;
+  font-size:22px;
+  transform: rotate(-14deg);
+  text-shadow: 0 6px 18px rgba(4,32,51,0.06);
+}
+
+/* task text */
+.task strong{ display:block; font-size:16px; color:var(--text); }
+.task .small{ color:var(--muted); margin-top:4px; }
+
+/* action buttons inside task */
+.task button{ margin-left:6px; border-radius:10px; padding:8px 10px; font-weight:700; }
+.task .btn.alt{ background: transparent; border: 1px dashed rgba(4,32,51,0.06); }
+
+/* Done state */
+.task.done{ opacity:0.6; filter: saturate(0.9) grayscale(0.02); transform: scale(0.995); }
+.task.done strong{ text-decoration: line-through; color: rgba(4,32,51,0.5); }
+
+/* Overlay (big friendly card) */
+.overlay{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(180deg, rgba(2,6,23,0.35), rgba(2,6,23,0.6));
+  z-index:9999; padding:20px; backdrop-filter: blur(4px);
+}
+.overlay.hidden{ display:none !important; pointer-events:none; }
+.overlay-card{
+  width:min(760px, 96%);
+  background: linear-gradient(180deg, #fff, #fffefc);
+  border-radius:24px;
+  padding:20px;
+  box-shadow: 0 30px 90px rgba(4,32,51,0.16);
+  border: 3px solid rgba(124,92,255,0.06);
+}
+
+/* overlay header */
+.overlay-header{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; }
+.overlay-title{ font-size:24px; font-weight:900; letter-spacing:0.6px; }
+
+/* time badge playful */
+.overlay-time{
+  display:inline-block;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent-3));
+  color:white;
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:800;
+  box-shadow: 0 8px 30px rgba(124,92,255,0.08);
+}
+
+/* overlay description */
+#overlayDescription{
+  width:100%;
+  min-height:120px;
+  padding:12px;
+  border-radius:12px;
+  border: 2px dashed rgba(4,32,51,0.04);
+  resize:vertical;
+  background: linear-gradient(180deg, rgba(248,248,255,0.95), rgba(255,255,255,0.96));
+  color:var(--text);
+  font-size:15px;
+}
+
+/* overlay actions */
+.overlay-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+
+/* Snooze button special */
+#snooze5{
+  background: linear-gradient(90deg, #ffd86b, #ff9fb1);
+  color: #08202a;
+  font-weight:900;
+}
+
+/* Accessibility helpers */
+.sr-only{
+  position:absolute !important;
+  width:1px; height:1px;
+  padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0);
+  white-space:nowrap; border:0;
+}
+.skip-link{ position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+.skip-link:focus{ left:12px; top:12px; width:auto; height:auto; background:var(--card); padding:8px 12px; border-radius:10px; }
+
+/* Focus visible */
+:focus-visible{ outline: 4px solid rgba(124,92,255,0.18); border-radius:8px; }
+
+/* Responsive */
+@media (max-width:640px){
+  body{ padding:12px; }
+  .container{ padding:6px; }
+  h1{ font-size:20px; }
+  .form{ gap:6px; }
+  input, button{ font-size:15px; min-height:44px; }
+  .overlay-card{ width:96%; padding:16px; border-radius:18px; }
+}
+
+/* Tiny confetti fun (used briefly when notification triggers via JS adding .confetti to body) */
+.confetti-piece{
+  position:fixed;
+  width:10px; height:14px;
+  opacity:0;
+  pointer-events:none;
+  transform-origin:center;
+  animation: confettiFall 1200ms linear forwards;
+}
+@keyframes confettiFall{
+  0%{ opacity:1; transform: translateY(-30vh) rotate(0deg) scale(1); }
+  100%{ opacity:0; transform: translateY(90vh) rotate(540deg) scale(0.9); }
+}
+
+/* Helper classes */
+.hidden{ display:none !important; }
+.fade-in{ animation: fadeIn 300ms var(--transition) both; }
+@keyframes fadeIn{ from{ opacity:0; transform: translateY(8px); } to{ opacity:1; transform: translateY(0); } }
+
+/* End of EstudaFácil Kids style */

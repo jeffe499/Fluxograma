@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07101a" />
+  <title>EstudaFácil — Notificações em tela inteira</title>
+
+  <!-- estilos externos -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- ícone (opcional) -->
+  <link rel="icon" href="favicon.ico" />
+</head>
+<body>
+  <!-- Skip link para quem usa teclado -->
+  <a class="skip-link" href="#main" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+    Ir para o conteúdo
+  </a>
+
+  <div class="container" id="root">
+    <header role="banner" aria-label="Cabeçalho principal">
+      <h1>EstudaFácil <small class="muted">(simples)</small></h1>
+
+      <div class="right" aria-hidden="false">
+        <!-- status com aria-live para leitores de tela -->
+        <div id="status" class="muted" aria-live="polite">pronto</div>
+
+        <!-- sino: visual + acessível -->
+        <button id="bell" title="Notificações" aria-label="Abrir notificações" aria-haspopup="dialog">
+          🔔
+        </button>
+      </div>
+    </header>
+
+    <main id="main" role="main" aria-labelledby="main-title">
+      <h2 id="main-title" class="sr-only" style="height:0;margin:0;padding:0;overflow:hidden;">Aplicativo EstudaFácil</h2>
+
+      <!-- AUTH -->
+      <section id="auth" class="card" aria-labelledby="auth-title">
+        <h3 id="auth-title">Entrar / Registrar</h3>
+
+        <form id="authForm" class="form" onsubmit="return false;" aria-describedby="authMsg">
+          <div class="row" style="align-items:center;">
+            <label for="username" class="small muted" style="min-width:72px">Usuário</label>
+            <input id="username" name="username" placeholder="usuário" autocomplete="username" />
+          </div>
+
+          <div class="row" style="align-items:center;margin-bottom:6px;">
+            <label for="password" class="small muted" style="min-width:72px">Senha</label>
+            <input id="password" name="password" type="password" placeholder="senha" autocomplete="current-password" />
+          </div>
+
+          <div class="row">
+            <button id="btnLogin" class="btn" type="button">Entrar</button>
+            <button id="btnRegister" class="btn alt" type="button">Registrar</button>
+          </div>
+
+          <div id="authMsg" class="small muted" role="status" aria-live="polite"></div>
+        </form>
+      </section>
+
+      <!-- APP principal (inicialmente hidden) -->
+      <section id="app" class="card hidden" aria-hidden="true">
+        <div class="top">
+          <div>
+            <strong id="who">—</strong>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="btnLogout" class="btn alt" type="button">Sair</button>
+            <button id="btnSync" class="btn" type="button">Sync (JSONBin)</button>
+          </div>
+        </div>
+
+        <!-- Form de tarefas -->
+        <form id="taskForm" class="form" onsubmit="return false;" aria-label="Adicionar tarefa">
+          <label for="title" class="sr-only">Título</label>
+          <input id="title" name="title" placeholder="Título (ex: Álgebra)" required />
+
+          <label for="description" class="sr-only">Descrição</label>
+          <input id="description" name="description" placeholder="Descrição (opcional)" />
+
+          <label for="subject" class="sr-only">Disciplina</label>
+          <select id="subject" name="subject" aria-label="Disciplina"></select>
+
+          <label for="date" class="sr-only">Data</label>
+          <input id="date" name="date" type="date" />
+
+          <label for="time" class="sr-only">Hora</label>
+          <input id="time" name="time" type="time" />
+
+          <label for="duration" class="sr-only">Duração em minutos</label>
+          <input id="duration" name="duration" type="number" placeholder="min" style="width:90px" min="1" />
+
+          <button id="addBtn" class="btn" type="button">Adicionar</button>
+        </form>
+
+        <!-- área onde as tarefas são renderizadas -->
+        <div id="tasks" class="tasks" aria-live="polite" aria-label="Lista de tarefas"></div>
+      </section>
+
+      <!-- dica / observação -->
+      <section class="card small muted" aria-hidden="false">
+        <strong>Dica:</strong> este protótipo salva localmente. Se quiser usar JSONBin, abra `script.js` e preencha `JSONBIN_BIN_ID` e `JSONBIN_MASTER_KEY` (somente para testes).
+      </section>
+    </main>
+
+    <footer class="muted" role="contentinfo">
+      Protótipo simples • Não use chaves privadas em produção
+    </footer>
+  </div>
+
+  <!-- Overlay full-screen de notificação (role=dialog) -->
+  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overlayTitle" aria-describedby="overlayDescription">
+    <div class="overlay-card" role="document">
+      <div class="overlay-header">
+        <div id="overlayTitle" class="overlay-title">Título da tarefa</div>
+        <button id="overlayClose" class="btn alt" type="button" aria-label="Fechar">Fechar</button>
+      </div>
+
+      <div class="overlay-body">
+        <div class="overlay-time muted" id="overlayTime">00:00</div>
+        <textarea id="overlayDescription" readonly placeholder="Sem descrição" aria-readonly="true"></textarea>
+      </div>
+
+      <div class="overlay-actions">
+        <button id="snooze5" class="btn" type="button">Adiar 5 min</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template leve para itens de tarefa (opcional, não obrigatório pro seu script atual) -->
+  <template id="task-template">
+    <div class="task" role="article">
+      <div>
+        <strong class="task-title"></strong>
+        <div class="small muted task-meta"></div>
+      </div>
+      <div>
+        <button class="btn alt task-mark" type="button">Marcar</button>
+        <button class="btn alt task-delete" type="button">Excluir</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- script externo (defer) -->
+  <script src="script.js" defer></script>
+</body>
+</html>
