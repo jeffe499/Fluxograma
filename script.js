@@ -1,4 +1,9 @@
-/* script.js - EstudaFácil (corrigido: notificações e robustez geral) */
+/* script.js - EstudaFácil
+   - Suporta campo description
+   - Filtros: all / upcoming (não concluídas) / done (concluídas)
+   - Notificações, som, visual e TTS
+   - Sync/Import/Export robustos
+*/
 
 const JSONBIN_BIN_ID = '68f2dc8c43b1c97be96dfc5c';
 const JSONBIN_MASTER_KEY = '$2a$10$3LMKVXiRGejkqgkKPn1PLue3gId0dWY/xN2fjHq1RCtx8UPYZicfq';
@@ -21,6 +26,7 @@ async function hashPassword(password) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+/* --- storage helpers --- */
 function loadUsers() {
   try { return JSON.parse(localStorage.getItem(LS_USERS) || '[]'); } catch { return []; }
 }
@@ -43,8 +49,12 @@ function loadUserData(id) {
     return JSON.parse(raw);
   } catch { return { subjects: [], tasks: [], settings: {} }; }
 }
-function saveUserData(id, data) { localStorage.setItem(LS_PREFIX + id, JSON.stringify(data)); }
+function saveUserData(id, data) {
+  if (!id) return;
+  try { localStorage.setItem(LS_PREFIX + id, JSON.stringify(data)); } catch (e) { console.warn('saveUserData failed', e); }
+}
 
+/* --- auth --- */
 async function register(username, password) {
   if (!username || !password) throw new Error('Preencha usuário e senha');
   const users = loadUsers();
@@ -67,19 +77,19 @@ async function login(username, password) {
 }
 function logout() { localStorage.removeItem(LS_CURRENT); }
 
+/* --- app state --- */
 let CURRENT = null;
 let DATA = null;
 let lastTriggeredTask = null;
-let currentFilter = 'all';
+let currentFilter = 'all'; // all | upcoming | done
 let currentSearch = '';
 
-/* ---------- Renderização ---------- */
-
+/* --- rendering --- */
 function renderSubjects() {
   const sel = el('subject');
   if (!sel) return;
   sel.innerHTML = '';
-  DATA.subjects.forEach(s => {
+  (DATA.subjects || []).forEach(s => {
     const opt = document.createElement('option');
     opt.value = s.id;
     opt.textContent = s.name;
@@ -88,7 +98,7 @@ function renderSubjects() {
   const legend = el('subjectLegend');
   if (legend) {
     legend.innerHTML = '';
-    DATA.subjects.forEach(s => {
+    (DATA.subjects || []).forEach(s => {
       const item = document.createElement('div');
       item.className = 'legend-item';
       item.innerHTML = `<span class="dot" style="background:${s.color}"></span><span class="name">${s.name}</span>`;
@@ -97,37 +107,23 @@ function renderSubjects() {
   }
 }
 
-function parseTaskTimestamp(task) {
-  // Retorna timestamp (ms) local baseado em task.date e task.time.
-  // Se faltar data ou hora, retorna NaN.
-  if (!task || !task.date) return NaN;
-  const dateParts = task.date.split('-').map(x => Number(x));
-  if (dateParts.length < 3 || dateParts.some(isNaN)) return NaN;
-  let hour = 0, minute = 0, second = 0;
-  if (task.time) {
-    const tParts = (task.time || '').split(':').map(x => Number(x));
-    if (tParts.length >= 1 && !isNaN(tParts[0])) hour = tParts[0];
-    if (tParts.length >= 2 && !isNaN(tParts[1])) minute = tParts[1];
-    if (tParts.length >= 3 && !isNaN(tParts[2])) second = tParts[2];
-  }
-  // new Date(year, monthIndex, day, hours, minutes, seconds) -> local time
-  return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], hour, minute, second).getTime();
-}
-
 function matchesFilter(t) {
+  // search first
   if (currentSearch) {
     const needle = currentSearch.toLowerCase();
-    if (!(String(t.title || '').toLowerCase().includes(needle) || (t.description || '').toLowerCase().includes(needle))) return false;
+    if (!(String(t.title || '').toLowerCase().includes(needle) ||
+          (t.description || '').toLowerCase().includes(needle))) {
+      return false;
+    }
   }
   if (currentFilter === 'all') return true;
   if (currentFilter === 'upcoming') {
-    if (t.done) return false;
-    if (!t.date && !t.time) return true;
-    const target = parseTaskTimestamp(t);
-    if (isNaN(target)) return true;
-    return target >= Date.now();
+    // Upcoming = tarefas NÃO concluídas
+    return !t.done;
   }
-  if (currentFilter === 'done') return !!t.done;
+  if (currentFilter === 'done') {
+    return !!t.done;
+  }
   return true;
 }
 
@@ -136,9 +132,14 @@ function renderTasks() {
   if (!wrap) return;
   wrap.innerHTML = '';
   const sorted = (DATA.tasks || []).slice().sort((a, b) => {
-    const ka = (a.date || '') + (a.time || '') + (a.title || '');
-    const kb = (b.date || '') + (b.time || '') + (b.title || '');
-    return ka > kb ? 1 : -1;
+    // sort by date/time/title (undefined => last)
+    const da = a.date || '';
+    const db = b.date || '';
+    const ta = a.time || '';
+    const tb = b.time || '';
+    const ka = `${da} ${ta} ${a.title || ''}`;
+    const kb = `${db} ${tb} ${b.title || ''}`;
+    return ka > kb ? 1 : (ka < kb ? -1 : 0);
   });
   const template = el('task-template');
   sorted.forEach(t => {
@@ -151,37 +152,45 @@ function renderTasks() {
     const dot = article.querySelector('.subject-dot');
     const markBtn = article.querySelector('.mark');
     const delBtn = article.querySelector('.delete');
-    const subj = DATA.subjects.find(s => s.id === t.subjectId);
+
+    const subj = (DATA.subjects || []).find(s => s.id === t.subjectId);
     dot.style.background = subj ? subj.color : '#ccc';
-    titleEl.textContent = t.title;
+    titleEl.textContent = t.title || '(sem título)';
+
     const descPreview = t.description ? (' — ' + (t.description.length > 70 ? t.description.slice(0, 70) + '…' : t.description)) : '';
     metaEl.textContent = `${t.date || ''} ${t.time || ''}${descPreview}`;
-    if (t.done) article.classList.add('done');
+
+    if (t.done) article.classList.add('done'); else article.classList.remove('done');
+
     markBtn.textContent = t.done ? '✔' : 'Marcar';
     markBtn.setAttribute('aria-pressed', t.done ? 'true' : 'false');
     markBtn.onclick = async (e) => {
       e.stopPropagation();
       t.done = !t.done;
+      // quando marcar como concluída, garantir que notificado não irá disparar novamente
+      if (t.done) t.notified = true;
       await saveAndRender();
     };
+
     delBtn.onclick = async (e) => {
       e.stopPropagation();
       if (!confirm('Excluir tarefa?')) return;
       DATA.tasks = DATA.tasks.filter(x => x.id !== t.id);
       await saveAndRender();
     };
+
     article.onclick = () => {
       lastTriggeredTask = t;
       showOverlay(t);
     };
+
     wrap.appendChild(node);
   });
 }
 
-/* ---------- Salvamento e formulários ---------- */
-
+/* --- save / add --- */
 async function saveAndRender() {
-  if (!CURRENT) return;
+  if (!CURRENT || !DATA) return;
   saveUserData(CURRENT, DATA);
   renderSubjects();
   renderTasks();
@@ -191,9 +200,8 @@ async function saveAndRender() {
 async function addTaskFromForm() {
   const title = (el('title')?.value || '').trim();
   if (!title) return alert('Coloque um título');
-  // description input may not exist in markup; support optional
   const description = el('description') ? (el('description').value || '').trim() : '';
-  const subjectId = el('subject') ? el('subject').value : (DATA.subjects[0] ? DATA.subjects[0].id : '');
+  const subjectId = el('subject') ? el('subject').value : (DATA.subjects && DATA.subjects[0] ? DATA.subjects[0].id : '');
   const date = el('date') ? el('date').value : '';
   const time = el('time') ? el('time').value : '';
   const durationMin = Number(el('duration')?.value) || 30;
@@ -205,12 +213,11 @@ async function addTaskFromForm() {
   await saveAndRender();
 }
 
-/* ---------- Sons, visual e notificações ---------- */
+/* --- audio / visuals / notifications --- */
 
 async function playBeepSequence() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // alguns navegadores exigem resume após gesture; tentar sempre
     if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
       try { await ctx.resume(); } catch (e) { /* ignore */ }
     }
@@ -230,7 +237,6 @@ async function playBeepSequence() {
       o.stop(now + i * 0.12 + 0.14);
     });
   } catch (e) {
-    // falha no áudio não deve quebrar o fluxo
     console.warn('playBeepSequence error', e);
   }
 }
@@ -239,7 +245,6 @@ function ringBellVisual() {
   const bell = el('bell');
   if (!bell) return;
   bell.classList.remove('ring');
-  // força reflow para reiniciar animação
   void bell.offsetWidth;
   bell.classList.add('ring');
   const onEnd = () => {
@@ -279,11 +284,7 @@ function hideOverlay() {
   overlay.setAttribute('aria-hidden', 'true');
 }
 
-if ('Notification' in window && Notification.permission === 'default') {
-  // não requisitar imediatamente em alguns navegadores; apenas prepara
-  // vamos pedir permissão quando o usuário interagir (login ou clicar no sino)
-}
-
+/* --- notifications permission helpers --- */
 function requestNotificationPermissionIfNeeded() {
   if (!('Notification' in window)) return Promise.resolve('unsupported');
   if (Notification.permission === 'granted') return Promise.resolve('granted');
@@ -304,13 +305,29 @@ function showNotification(title, body) {
   }
 }
 
-/* ---------- Trigger de alarme / checagem ---------- */
+/* --- alarm logic --- */
+
+function parseTaskTimestamp(task) {
+  // Return millisecond timestamp (local) or NaN
+  if (!task || !task.date) return NaN;
+  const parts = task.date.split('-').map(x => Number(x));
+  if (parts.length < 3 || parts.some(isNaN)) return NaN;
+  let hh = 0, mm = 0, ss = 0;
+  if (task.time) {
+    const t = task.time.split(':').map(x => Number(x));
+    if (!isNaN(t[0])) hh = t[0];
+    if (!isNaN(t[1])) mm = t[1];
+    if (!isNaN(t[2])) ss = t[2] || 0;
+  }
+  return new Date(parts[0], parts[1] - 1, parts[2], hh, mm, ss).getTime();
+}
 
 function triggerAlarm(task) {
   if (!task || task.notified) return;
   task.notified = true;
+  // evitar retrigger se usuário marcou como concluída pouco depois
+  if (task.done) { saveAndRender(); return; }
   saveAndRender();
-  // ações visuais/sonoras
   ringBellVisual();
   playBeepSequence();
   confettiBurst();
@@ -322,7 +339,7 @@ function triggerAlarm(task) {
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(m);
     }
-  } catch (e) { /* ignore TTS errors */ }
+  } catch (e) { /* ignore */ }
 }
 
 function checkAlarms() {
@@ -330,16 +347,16 @@ function checkAlarms() {
     if (!DATA || !Array.isArray(DATA.tasks)) return;
     const now = Date.now();
     DATA.tasks.forEach(t => {
-      if (!t.date) return; // sem data -> não agenda exata
+      if (!t.date) return; // sem data não tem horário exato
       const target = parseTaskTimestamp(t);
       if (isNaN(target)) return;
-      const delta = target - now; // positivo => futuro, negativo => passado
-      // dentro de ±1 minuto
-      if (delta >= -60 * 1000 && delta <= 60 * 1000 && !t.notified && !t.done) {
+      const diff = target - now; // positivo => future, negative => past
+      // disparar se dentro de ±60s
+      if (diff >= -60 * 1000 && diff <= 60 * 1000 && !t.notified && !t.done) {
         triggerAlarm(t);
       }
-      // se passou mais de 5 minutos sem notificação, marca como notificado para evitar repetição
-      if (delta < -5 * 60 * 1000 && !t.notified) {
+      // se passou mais de 5 minutos e ainda não notificado, marcar para não repetir
+      if (diff < -5 * 60 * 1000 && !t.notified) {
         t.notified = true;
         saveUserData(CURRENT, DATA);
       }
@@ -362,8 +379,7 @@ function addMinutesToTaskTime(task, minutes) {
   saveAndRender();
 }
 
-/* ---------- JSONBin sync ---------- */
-
+/* --- jsonbin sync / import / export --- */
 async function syncToJsonBin() {
   if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) return alert('JSONBin não configurado');
   try {
@@ -401,11 +417,6 @@ async function pullFromJsonBin() {
   } catch (e) {
     alert('Pull falhou: ' + e.message);
   }
-}
-
-function setStatus(t) {
-  const s = el('status');
-  if (s) s.textContent = t;
 }
 
 function exportData() {
@@ -447,9 +458,14 @@ function clearDoneTasks() {
   saveAndRender();
 }
 
-/* ---------- UI wiring (robusto) ---------- */
+/* --- UI wiring --- */
+function setStatus(t) {
+  const s = el('status');
+  if (s) s.textContent = t;
+}
 
 function wireUI() {
+  // Register
   el('btnRegister').onclick = async () => {
     const u = (el('username')?.value || '').trim();
     const p = el('password')?.value || '';
@@ -461,6 +477,7 @@ function wireUI() {
     }
   };
 
+  // Login
   el('btnLogin').onclick = async () => {
     const u = (el('username')?.value || '').trim();
     const p = el('password')?.value || '';
@@ -477,15 +494,14 @@ function wireUI() {
       renderTasks();
       setStatus('logado');
       setTimeout(() => { el('title')?.focus(); }, 120);
-      // pedir permissão de notificação após login (opcional): melhora UX
-      requestNotificationPermissionIfNeeded().then(p => {
-        if (p === 'granted') setStatus('notificações permitidas');
-      });
+      // pedir permissão de notificação após login para melhorar a UX
+      requestNotificationPermissionIfNeeded().then(p => { if (p === 'granted') setStatus('notificações permitidas'); });
     } catch (e) {
       el('authMsg').textContent = 'Erro: ' + e.message;
     }
   };
 
+  // Logout
   el('btnLogout').onclick = () => {
     logout();
     CURRENT = null;
@@ -498,8 +514,10 @@ function wireUI() {
     setTimeout(() => el('username')?.focus(), 120);
   };
 
+  // Add task
   el('addBtn').onclick = addTaskFromForm;
 
+  // Overlay controls
   el('overlayClose').onclick = hideOverlay;
   $$('.snooze').forEach(btn => {
     btn.onclick = () => {
@@ -511,8 +529,8 @@ function wireUI() {
     };
   });
 
+  // Bell
   el('bell').onclick = async () => {
-    // pedir permissão se necessário antes de tentar notificar
     await requestNotificationPermissionIfNeeded();
     if (lastTriggeredTask) {
       ringBellVisual();
@@ -526,6 +544,7 @@ function wireUI() {
     }
   };
 
+  // restore session if present
   const cur = localStorage.getItem(LS_CURRENT);
   if (cur) {
     CURRENT = cur;
@@ -548,15 +567,17 @@ function wireUI() {
     el('app').setAttribute('aria-hidden', 'true');
   }
 
-  // Intervalo seguro para checar alarmes
+  // alarm check
   setInterval(checkAlarms, 10 * 1000);
   setTimeout(checkAlarms, 1000);
 
+  // search
   el('search')?.addEventListener('input', (e) => {
     currentSearch = e.target.value.trim();
     renderTasks();
   });
 
+  // filters
   $$('.filter').forEach(f => {
     f.addEventListener('click', () => {
       $$('.filter').forEach(x => x.classList.remove('active'));
@@ -566,11 +587,12 @@ function wireUI() {
     });
   });
 
+  // actions
   el('clearDone').onclick = clearDoneTasks;
   el('exportBtn').onclick = exportData;
   el('importBtn').onclick = () => el('importFile')?.click();
 
-  // Protege se input file não existe no HTML (evita erro que quebrava o script)
+  // import file input safe binding
   const importFileEl = el('importFile');
   if (importFileEl) {
     importFileEl.addEventListener('change', (ev) => {
@@ -580,12 +602,12 @@ function wireUI() {
     });
   }
 
-  // Proteções de teclado / acessibilidade
+  // keyboard
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hideOverlay();
   });
 
-  // Botões de sync (se presentes)
+  // sync buttons (if exist)
   const btnSync = el('btnSync');
   if (btnSync) {
     btnSync.onclick = async () => {
@@ -606,5 +628,5 @@ function wireUI() {
 
 wireUI();
 
-// debug helpers
+/* --- debug helpers --- */
 window._debug = { loadUsers, loadUserData, saveUserData, checkAlarms, DATA, syncToJsonBin, pullFromJsonBin };
