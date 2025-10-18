@@ -10,27 +10,17 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const el = (id) => document.getElementById(id);
 
-function uid(prefix = 'id') {
-  return prefix + Math.random().toString(36).slice(2, 9);
-}
-function pad(n) {
-  return String(n).padStart(2, '0');
-}
+function uid(prefix = 'id') { return prefix + Math.random().toString(36).slice(2, 9); }
+function pad(n) { return String(n).padStart(2, '0'); }
 async function hashPassword(password) {
   const enc = new TextEncoder().encode(password);
   const buf = await crypto.subtle.digest('SHA-256', enc);
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 function loadUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(LS_USERS) || '[]');
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(LS_USERS) || '[]'); } catch { return []; }
 }
-function saveUsers(u) {
-  localStorage.setItem(LS_USERS, JSON.stringify(u));
-}
+function saveUsers(u) { localStorage.setItem(LS_USERS, JSON.stringify(u)); }
 function loadUserData(id) {
   const k = LS_PREFIX + id;
   try {
@@ -47,13 +37,9 @@ function loadUserData(id) {
       };
     }
     return JSON.parse(raw);
-  } catch {
-    return { subjects: [], tasks: [], settings: {} };
-  }
+  } catch { return { subjects: [], tasks: [], settings: {} }; }
 }
-function saveUserData(id, data) {
-  localStorage.setItem(LS_PREFIX + id, JSON.stringify(data));
-}
+function saveUserData(id, data) { localStorage.setItem(LS_PREFIX + id, JSON.stringify(data)); }
 
 async function register(username, password) {
   if (!username || !password) throw new Error('Preencha usuário e senha');
@@ -75,9 +61,7 @@ async function login(username, password) {
   localStorage.setItem(LS_CURRENT, user.id);
   return user.id;
 }
-function logout() {
-  localStorage.removeItem(LS_CURRENT);
-}
+function logout() { localStorage.removeItem(LS_CURRENT); }
 
 let CURRENT = null;
 let DATA = null;
@@ -87,6 +71,7 @@ let currentSearch = '';
 
 function renderSubjects() {
   const sel = el('subject');
+  if (!sel) return;
   sel.innerHTML = '';
   DATA.subjects.forEach(s => {
     const opt = document.createElement('option');
@@ -95,13 +80,15 @@ function renderSubjects() {
     sel.appendChild(opt);
   });
   const legend = el('subjectLegend');
-  legend.innerHTML = '';
-  DATA.subjects.forEach(s => {
-    const item = document.createElement('div');
-    item.className = 'legend-item';
-    item.innerHTML = `<span class="dot" style="background:${s.color}"></span><span class="name">${s.name}</span>`;
-    legend.appendChild(item);
-  });
+  if (legend) {
+    legend.innerHTML = '';
+    DATA.subjects.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = `<span class="dot" style="background:${s.color}"></span><span class="name">${s.name}</span>`;
+      legend.appendChild(item);
+    });
+  }
 }
 
 function matchesFilter(t) {
@@ -123,6 +110,7 @@ function matchesFilter(t) {
 
 function renderTasks() {
   const wrap = el('tasks');
+  if (!wrap) return;
   wrap.innerHTML = '';
   const sorted = DATA.tasks.slice().sort((a, b) => {
     const ka = (a.date || '') + (a.time || '') + (a.title || '');
@@ -148,16 +136,18 @@ function renderTasks() {
     if (t.done) article.classList.add('done');
     markBtn.textContent = t.done ? '✔' : 'Marcar';
     markBtn.setAttribute('aria-pressed', t.done ? 'true' : 'false');
-    markBtn.onclick = async () => {
+    markBtn.onclick = async (e) => {
+      e.stopPropagation();
       t.done = !t.done;
       await saveAndRender();
     };
-    delBtn.onclick = async () => {
+    delBtn.onclick = async (e) => {
+      e.stopPropagation();
+      if (!confirm('Excluir tarefa?')) return;
       DATA.tasks = DATA.tasks.filter(x => x.id !== t.id);
       await saveAndRender();
     };
-    article.onclick = (e) => {
-      if (e.target === markBtn || e.target === delBtn) return;
+    article.onclick = () => {
       lastTriggeredTask = t;
       showOverlay(t);
     };
@@ -174,18 +164,18 @@ async function saveAndRender() {
 }
 
 async function addTaskFromForm() {
-  const title = el('title').value.trim();
+  const title = (el('title')?.value || '').trim();
   if (!title) return alert('Coloque um título');
-  const description = el('description') ? el('description').value.trim() : '';
-  const subjectId = el('subject').value;
-  const date = el('date').value;
-  const time = el('time').value;
-  const durationMin = Number(el('duration').value) || 30;
+  const description = el('description') ? (el('description').value || '').trim() : '';
+  const subjectId = el('subject') ? el('subject').value : (DATA.subjects[0] ? DATA.subjects[0].id : '');
+  const date = el('date') ? el('date').value : '';
+  const time = el('time') ? el('time').value : '';
+  const durationMin = Number(el('duration')?.value) || 30;
   const t = { id: uid('t'), title, description, subjectId, date, time, durationMin, done: false, notified: false };
   DATA.tasks.push(t);
-  el('title').value = '';
+  if (el('title')) el('title').value = '';
   if (el('description')) el('description').value = '';
-  el('duration').value = '';
+  if (el('duration')) el('duration').value = '';
   await saveAndRender();
 }
 
@@ -207,7 +197,7 @@ function playBeepSequence() {
       g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.12);
       o.stop(now + i * 0.12 + 0.14);
     });
-  } catch (e) { console.warn('Audio failed', e); }
+  } catch (e) { }
 }
 function ringBellVisual() {
   const bell = el('bell');
@@ -231,15 +221,20 @@ function confettiBurst() {
 
 function showOverlay(task) {
   const overlay = el('overlay');
+  if (!overlay) return;
   el('overlayTitle').textContent = task.title || 'Notificação';
   el('overlayTime').textContent = (task.date ? task.date + ' ' : '') + (task.time || '');
   el('overlayDescription').value = task.description || '';
   overlay.classList.remove('hidden');
+  overlay.setAttribute('aria-hidden', 'false');
   lastTriggeredTask = task;
-  setTimeout(() => el('overlayClose').focus(), 100);
+  setTimeout(() => el('overlayClose')?.focus(), 120);
 }
 function hideOverlay() {
-  el('overlay').classList.add('hidden');
+  const overlay = el('overlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
+  overlay.setAttribute('aria-hidden', 'true');
 }
 
 if ('Notification' in window && Notification.permission === 'default') {
@@ -351,27 +346,33 @@ function exportData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `estudafacil_export_${(new Date()).toISOString().slice(0, 10)}.json`;
+  a.download = `estudafacil_${(new Date()).toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
 }
 
-function importDataFromPrompt() {
-  const txt = prompt('Cole o JSON para importar (substitui os dados atuais)');
-  if (!txt) return;
-  try {
-    const parsed = JSON.parse(txt);
-    if (!parsed || typeof parsed !== 'object') throw new Error('JSON inválido');
-    DATA = parsed;
-    saveUserData(CURRENT, DATA);
-    renderSubjects();
-    renderTasks();
-    setStatus('importado');
-  } catch (e) {
-    alert('Import falhou: ' + e.message);
-  }
+function handleImportFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed || typeof parsed !== 'object') throw new Error('JSON inválido');
+      if (!confirm('Importar este arquivo substituirá seus dados atuais. Continuar?')) return;
+      DATA = parsed;
+      saveUserData(CURRENT, DATA);
+      renderSubjects();
+      renderTasks();
+      setStatus('importado');
+      alert('Importação concluída');
+    } catch (e) {
+      alert('Import falhou: ' + e.message);
+    }
+  };
+  reader.onerror = () => alert('Erro lendo o arquivo');
+  reader.readAsText(file, 'utf-8');
 }
 
 function clearDoneTasks() {
@@ -381,8 +382,8 @@ function clearDoneTasks() {
 
 function wireUI() {
   el('btnRegister').onclick = async () => {
-    const u = el('username').value.trim();
-    const p = el('password').value;
+    const u = (el('username')?.value || '').trim();
+    const p = el('password')?.value || '';
     try {
       await register(u, p);
       el('authMsg').textContent = 'Registrado — faça login';
@@ -390,76 +391,50 @@ function wireUI() {
       el('authMsg').textContent = 'Erro: ' + e.message;
     }
   };
+
   el('btnLogin').onclick = async () => {
-  const u = el('username').value.trim();
-  const p = el('password').value;
-  try {
-    const id = await login(u, p);
-    CURRENT = id;
-    DATA = loadUserData(CURRENT);
-    el('who').textContent = u;
+    const u = (el('username')?.value || '').trim();
+    const p = el('password')?.value || '';
+    try {
+      const id = await login(u, p);
+      CURRENT = id;
+      DATA = loadUserData(CURRENT);
+      el('who').textContent = u;
+      el('auth').classList.add('hidden');
+      el('auth').setAttribute('aria-hidden', 'true');
+      el('app').classList.remove('hidden');
+      el('app').setAttribute('aria-hidden', 'false');
+      renderSubjects();
+      renderTasks();
+      setStatus('logado');
+      setTimeout(() => { el('title')?.focus(); }, 120);
+    } catch (e) {
+      el('authMsg').textContent = 'Erro: ' + e.message;
+    }
+  };
 
-    // esconder a área de auth e marcar aria-hidden
-    el('auth').classList.add('hidden');
-    el('auth').setAttribute('aria-hidden', 'true');
-
-    // mostrar a app e marcar aria-hidden
-    el('app').classList.remove('hidden');
-    el('app').setAttribute('aria-hidden', 'false');
-
-    // render UI
-    renderSubjects();
-    renderTasks();
-    setStatus('logado');
-
-    // foco no campo principal da app para melhorar UX
-    setTimeout(() => {
-      const first = el('title') || el('addBtn');
-      if (first) first.focus();
-    }, 120);
-  } catch (e) {
-    el('authMsg').textContent = 'Erro: ' + e.message;
-  }
-};
-
- el('btnLogout').onclick = () => {
-  logout();
-  CURRENT = null;
-  DATA = null;
-
-  // mostrar auth, esconder app
-  el('auth').classList.remove('hidden');
-  el('auth').setAttribute('aria-hidden', 'false');
-
-  el('app').classList.add('hidden');
-  el('app').setAttribute('aria-hidden', 'true');
-
-  setStatus('desconectado');
-
-  // foco no usuário para login rápido
-  setTimeout(() => {
-    el('username')?.focus();
-  }, 80);
-};
-
+  el('btnLogout').onclick = () => {
+    logout();
+    CURRENT = null;
+    DATA = null;
+    el('auth').classList.remove('hidden');
+    el('auth').setAttribute('aria-hidden', 'false');
+    el('app').classList.add('hidden');
+    el('app').setAttribute('aria-hidden', 'true');
+    setStatus('desconectado');
+    setTimeout(() => el('username')?.focus(), 120);
+  };
 
   el('addBtn').onclick = addTaskFromForm;
-
-  el('btnSync').onclick = async () => {
-    const ok = confirm('OK = enviar; Cancel = baixar');
-    if (ok) await syncToJsonBin();
-    else await pullFromJsonBin();
-  };
 
   el('overlayClose').onclick = hideOverlay;
   $$('.snooze').forEach(btn => {
     btn.onclick = () => {
-      if (lastTriggeredTask) {
-        const m = Number(btn.getAttribute('data-min')) || 5;
-        addMinutesToTaskTime(lastTriggeredTask, m);
-        hideOverlay();
-        setStatus(`adiado ${m} min`);
-      }
+      if (!lastTriggeredTask) return;
+      const m = Number(btn.getAttribute('data-min')) || 5;
+      addMinutesToTaskTime(lastTriggeredTask, m);
+      hideOverlay();
+      setStatus(`adiado ${m} min`);
     };
   });
 
@@ -476,39 +451,36 @@ function wireUI() {
     }
   };
 
- const cur = localStorage.getItem(LS_CURRENT);
-if (cur) {
-  CURRENT = cur;
-  DATA = loadUserData(CURRENT);
-  const users = loadUsers();
-  const u = users.find(x => x.id === CURRENT);
-  el('who').textContent = u ? u.username : 'Usuário';
-
-  el('auth').classList.add('hidden');
-  el('auth').setAttribute('aria-hidden', 'true');
-
-  el('app').classList.remove('hidden');
-  el('app').setAttribute('aria-hidden', 'false');
-
-  renderSubjects();
-  renderTasks();
-  setStatus('restaurado');
-} else {
-  setStatus('pronto');
-  el('auth').classList.remove('hidden');
-  el('auth').setAttribute('aria-hidden', 'false');
-  el('app').classList.add('hidden');
-  el('app').setAttribute('aria-hidden', 'true');
-}
-
+  const cur = localStorage.getItem(LS_CURRENT);
+  if (cur) {
+    CURRENT = cur;
+    DATA = loadUserData(CURRENT);
+    const users = loadUsers();
+    const u = users.find(x => x.id === CURRENT);
+    el('who').textContent = u ? u.username : 'Usuário';
+    el('auth').classList.add('hidden');
+    el('auth').setAttribute('aria-hidden', 'true');
+    el('app').classList.remove('hidden');
+    el('app').setAttribute('aria-hidden', 'false');
+    renderSubjects();
+    renderTasks();
+    setStatus('restaurado');
+  } else {
+    setStatus('pronto');
+    el('auth').classList.remove('hidden');
+    el('auth').setAttribute('aria-hidden', 'false');
+    el('app').classList.add('hidden');
+    el('app').setAttribute('aria-hidden', 'true');
+  }
 
   setInterval(checkAlarms, 10 * 1000);
   setTimeout(checkAlarms, 1000);
 
-  el('search').addEventListener('input', (e) => {
+  el('search')?.addEventListener('input', (e) => {
     currentSearch = e.target.value.trim();
     renderTasks();
   });
+
   $$('.filter').forEach(f => {
     f.addEventListener('click', () => {
       $$('.filter').forEach(x => x.classList.remove('active'));
@@ -520,7 +492,12 @@ if (cur) {
 
   el('clearDone').onclick = clearDoneTasks;
   el('exportBtn').onclick = exportData;
-  el('importBtn').onclick = importDataFromPrompt;
+  el('importBtn').onclick = () => el('importFile')?.click();
+  el('importFile').addEventListener('change', (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    handleImportFile(file);
+    ev.target.value = '';
+  });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hideOverlay();
@@ -529,4 +506,4 @@ if (cur) {
 
 wireUI();
 
-window._debug = { loadUsers, loadUserData, saveUserData, checkAlarms, DATA };
+window._debug = { loadUsers, loadUserData, saveUserData, checkAlarms, DATA, syncToJsonBin, pullFromJsonBin };
