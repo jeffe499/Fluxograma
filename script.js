@@ -391,30 +391,57 @@ function wireUI() {
     }
   };
   el('btnLogin').onclick = async () => {
-    const u = el('username').value.trim();
-    const p = el('password').value;
-    try {
-      const id = await login(u, p);
-      CURRENT = id;
-      DATA = loadUserData(CURRENT);
-      el('who').textContent = u;
-      el('auth').classList.add('hidden');
-      el('app').classList.remove('hidden');
-      renderSubjects();
-      renderTasks();
-      setStatus('logado');
-    } catch (e) {
-      el('authMsg').textContent = 'Erro: ' + e.message;
-    }
-  };
-  el('btnLogout').onclick = () => {
-    logout();
-    CURRENT = null;
-    DATA = null;
-    el('auth').classList.remove('hidden');
-    el('app').classList.add('hidden');
-    setStatus('desconectado');
-  };
+  const u = el('username').value.trim();
+  const p = el('password').value;
+  try {
+    const id = await login(u, p);
+    CURRENT = id;
+    DATA = loadUserData(CURRENT);
+    el('who').textContent = u;
+
+    // esconder a área de auth e marcar aria-hidden
+    el('auth').classList.add('hidden');
+    el('auth').setAttribute('aria-hidden', 'true');
+
+    // mostrar a app e marcar aria-hidden
+    el('app').classList.remove('hidden');
+    el('app').setAttribute('aria-hidden', 'false');
+
+    // render UI
+    renderSubjects();
+    renderTasks();
+    setStatus('logado');
+
+    // foco no campo principal da app para melhorar UX
+    setTimeout(() => {
+      const first = el('title') || el('addBtn');
+      if (first) first.focus();
+    }, 120);
+  } catch (e) {
+    el('authMsg').textContent = 'Erro: ' + e.message;
+  }
+};
+
+ el('btnLogout').onclick = () => {
+  logout();
+  CURRENT = null;
+  DATA = null;
+
+  // mostrar auth, esconder app
+  el('auth').classList.remove('hidden');
+  el('auth').setAttribute('aria-hidden', 'false');
+
+  el('app').classList.add('hidden');
+  el('app').setAttribute('aria-hidden', 'true');
+
+  setStatus('desconectado');
+
+  // foco no usuário para login rápido
+  setTimeout(() => {
+    el('username')?.focus();
+  }, 80);
+};
+
 
   el('addBtn').onclick = addTaskFromForm;
 
@@ -449,21 +476,31 @@ function wireUI() {
     }
   };
 
-  const cur = localStorage.getItem(LS_CURRENT);
-  if (cur) {
-    CURRENT = cur;
-    DATA = loadUserData(CURRENT);
-    const users = loadUsers();
-    const u = users.find(x => x.id === CURRENT);
-    el('who').textContent = u ? u.username : 'Usuário';
-    el('auth').classList.add('hidden');
-    el('app').classList.remove('hidden');
-    renderSubjects();
-    renderTasks();
-    setStatus('restaurado');
-  } else {
-    setStatus('pronto');
-  }
+ const cur = localStorage.getItem(LS_CURRENT);
+if (cur) {
+  CURRENT = cur;
+  DATA = loadUserData(CURRENT);
+  const users = loadUsers();
+  const u = users.find(x => x.id === CURRENT);
+  el('who').textContent = u ? u.username : 'Usuário';
+
+  el('auth').classList.add('hidden');
+  el('auth').setAttribute('aria-hidden', 'true');
+
+  el('app').classList.remove('hidden');
+  el('app').setAttribute('aria-hidden', 'false');
+
+  renderSubjects();
+  renderTasks();
+  setStatus('restaurado');
+} else {
+  setStatus('pronto');
+  el('auth').classList.remove('hidden');
+  el('auth').setAttribute('aria-hidden', 'false');
+  el('app').classList.add('hidden');
+  el('app').setAttribute('aria-hidden', 'true');
+}
+
 
   setInterval(checkAlarms, 10 * 1000);
   setTimeout(checkAlarms, 1000);

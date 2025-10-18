@@ -285,3 +285,16 @@ input:focus, select:focus, textarea:focus{
   .overlay-card{ width:96%; padding:14px; border-radius:16px }
   .brand .badge{ display:none }
 }
+
+/* Ensure hidden actually hides elements (important!) */
+.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Optional: smooth show/hide for cards (applies when you remove .hidden) */
+.card {
+  transition: opacity 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+}
