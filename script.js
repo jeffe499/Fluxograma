@@ -1,3 +1,5 @@
+/* script.js - EstudaFácil (corrigido: notificações e robustez geral) */
+
 const JSONBIN_BIN_ID = '68f2dc8c43b1c97be96dfc5c';
 const JSONBIN_MASTER_KEY = '$2a$10$3LMKVXiRGejkqgkKPn1PLue3gId0dWY/xN2fjHq1RCtx8UPYZicfq';
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
@@ -12,11 +14,13 @@ const el = (id) => document.getElementById(id);
 
 function uid(prefix = 'id') { return prefix + Math.random().toString(36).slice(2, 9); }
 function pad(n) { return String(n).padStart(2, '0'); }
+
 async function hashPassword(password) {
   const enc = new TextEncoder().encode(password);
   const buf = await crypto.subtle.digest('SHA-256', enc);
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
 function loadUsers() {
   try { return JSON.parse(localStorage.getItem(LS_USERS) || '[]'); } catch { return []; }
 }
@@ -69,6 +73,8 @@ let lastTriggeredTask = null;
 let currentFilter = 'all';
 let currentSearch = '';
 
+/* ---------- Renderização ---------- */
+
 function renderSubjects() {
   const sel = el('subject');
   if (!sel) return;
@@ -91,18 +97,35 @@ function renderSubjects() {
   }
 }
 
+function parseTaskTimestamp(task) {
+  // Retorna timestamp (ms) local baseado em task.date e task.time.
+  // Se faltar data ou hora, retorna NaN.
+  if (!task || !task.date) return NaN;
+  const dateParts = task.date.split('-').map(x => Number(x));
+  if (dateParts.length < 3 || dateParts.some(isNaN)) return NaN;
+  let hour = 0, minute = 0, second = 0;
+  if (task.time) {
+    const tParts = (task.time || '').split(':').map(x => Number(x));
+    if (tParts.length >= 1 && !isNaN(tParts[0])) hour = tParts[0];
+    if (tParts.length >= 2 && !isNaN(tParts[1])) minute = tParts[1];
+    if (tParts.length >= 3 && !isNaN(tParts[2])) second = tParts[2];
+  }
+  // new Date(year, monthIndex, day, hours, minutes, seconds) -> local time
+  return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], hour, minute, second).getTime();
+}
+
 function matchesFilter(t) {
   if (currentSearch) {
     const needle = currentSearch.toLowerCase();
-    if (!(t.title.toLowerCase().includes(needle) || (t.description || '').toLowerCase().includes(needle))) return false;
+    if (!(String(t.title || '').toLowerCase().includes(needle) || (t.description || '').toLowerCase().includes(needle))) return false;
   }
   if (currentFilter === 'all') return true;
   if (currentFilter === 'upcoming') {
     if (t.done) return false;
     if (!t.date && !t.time) return true;
-    const iso = `${t.date || ''}T${t.time || '00:00'}:00`;
-    const target = new Date(iso).getTime();
-    return isNaN(target) ? true : target >= Date.now();
+    const target = parseTaskTimestamp(t);
+    if (isNaN(target)) return true;
+    return target >= Date.now();
   }
   if (currentFilter === 'done') return !!t.done;
   return true;
@@ -112,7 +135,7 @@ function renderTasks() {
   const wrap = el('tasks');
   if (!wrap) return;
   wrap.innerHTML = '';
-  const sorted = DATA.tasks.slice().sort((a, b) => {
+  const sorted = (DATA.tasks || []).slice().sort((a, b) => {
     const ka = (a.date || '') + (a.time || '') + (a.title || '');
     const kb = (b.date || '') + (b.time || '') + (b.title || '');
     return ka > kb ? 1 : -1;
@@ -155,6 +178,8 @@ function renderTasks() {
   });
 }
 
+/* ---------- Salvamento e formulários ---------- */
+
 async function saveAndRender() {
   if (!CURRENT) return;
   saveUserData(CURRENT, DATA);
@@ -166,6 +191,7 @@ async function saveAndRender() {
 async function addTaskFromForm() {
   const title = (el('title')?.value || '').trim();
   if (!title) return alert('Coloque um título');
+  // description input may not exist in markup; support optional
   const description = el('description') ? (el('description').value || '').trim() : '';
   const subjectId = el('subject') ? el('subject').value : (DATA.subjects[0] ? DATA.subjects[0].id : '');
   const date = el('date') ? el('date').value : '';
@@ -179,9 +205,15 @@ async function addTaskFromForm() {
   await saveAndRender();
 }
 
-function playBeepSequence() {
+/* ---------- Sons, visual e notificações ---------- */
+
+async function playBeepSequence() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // alguns navegadores exigem resume após gesture; tentar sempre
+    if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+      try { await ctx.resume(); } catch (e) { /* ignore */ }
+    }
     const now = ctx.currentTime;
     const notes = [880, 988, 1047];
     notes.forEach((freq, i) => {
@@ -197,16 +229,26 @@ function playBeepSequence() {
       g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.12);
       o.stop(now + i * 0.12 + 0.14);
     });
-  } catch (e) { }
+  } catch (e) {
+    // falha no áudio não deve quebrar o fluxo
+    console.warn('playBeepSequence error', e);
+  }
 }
+
 function ringBellVisual() {
   const bell = el('bell');
   if (!bell) return;
   bell.classList.remove('ring');
+  // força reflow para reiniciar animação
   void bell.offsetWidth;
   bell.classList.add('ring');
-  bell.addEventListener('animationend', () => bell.classList.remove('ring'), { once: true });
+  const onEnd = () => {
+    bell.classList.remove('ring');
+    bell.removeEventListener('animationend', onEnd);
+  };
+  bell.addEventListener('animationend', onEnd);
 }
+
 function confettiBurst() {
   const colors = ['#ff6b9a', '#6bf2a1', '#7c5cff', '#ffd86b', '#00d1b2'];
   for (let i = 0; i < 18; i++) {
@@ -238,19 +280,37 @@ function hideOverlay() {
 }
 
 if ('Notification' in window && Notification.permission === 'default') {
-  Notification.requestPermission().then(() => { });
+  // não requisitar imediatamente em alguns navegadores; apenas prepara
+  // vamos pedir permissão quando o usuário interagir (login ou clicar no sino)
 }
+
+function requestNotificationPermissionIfNeeded() {
+  if (!('Notification' in window)) return Promise.resolve('unsupported');
+  if (Notification.permission === 'granted') return Promise.resolve('granted');
+  if (Notification.permission === 'denied') return Promise.resolve('denied');
+  return Notification.requestPermission();
+}
+
 function showNotification(title, body) {
-  if ('Notification' in window && Notification.permission === 'granted') {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  try {
     const n = new Notification(title, { body, renotify: true });
-    try { n.onclick = () => window.focus(); } catch (e) { }
+    n.onclick = () => {
+      try { window.focus(); } catch (e) { }
+    };
+  } catch (e) {
+    console.warn('showNotification failed', e);
   }
 }
 
+/* ---------- Trigger de alarme / checagem ---------- */
+
 function triggerAlarm(task) {
-  if (task.notified) return;
+  if (!task || task.notified) return;
   task.notified = true;
   saveAndRender();
+  // ações visuais/sonoras
   ringBellVisual();
   playBeepSequence();
   confettiBurst();
@@ -262,26 +322,31 @@ function triggerAlarm(task) {
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(m);
     }
-  } catch (e) { }
+  } catch (e) { /* ignore TTS errors */ }
 }
 
 function checkAlarms() {
-  if (!DATA || !Array.isArray(DATA.tasks)) return;
-  const now = Date.now();
-  DATA.tasks.forEach(t => {
-    if (!t.date || !t.time) return;
-    const iso = `${t.date}T${t.time}:00`;
-    const target = new Date(iso).getTime();
-    if (isNaN(target)) return;
-    const diff = now - target;
-    if (Math.abs(diff) <= 60 * 1000 && !t.notified && !t.done) {
-      triggerAlarm(t);
-    }
-    if (diff > 5 * 60 * 1000 && !t.notified) {
-      t.notified = true;
-      saveUserData(CURRENT, DATA);
-    }
-  });
+  try {
+    if (!DATA || !Array.isArray(DATA.tasks)) return;
+    const now = Date.now();
+    DATA.tasks.forEach(t => {
+      if (!t.date) return; // sem data -> não agenda exata
+      const target = parseTaskTimestamp(t);
+      if (isNaN(target)) return;
+      const delta = target - now; // positivo => futuro, negativo => passado
+      // dentro de ±1 minuto
+      if (delta >= -60 * 1000 && delta <= 60 * 1000 && !t.notified && !t.done) {
+        triggerAlarm(t);
+      }
+      // se passou mais de 5 minutos sem notificação, marca como notificado para evitar repetição
+      if (delta < -5 * 60 * 1000 && !t.notified) {
+        t.notified = true;
+        saveUserData(CURRENT, DATA);
+      }
+    });
+  } catch (e) {
+    console.error('checkAlarms error', e);
+  }
 }
 
 function addMinutesToTaskTime(task, minutes) {
@@ -296,6 +361,8 @@ function addMinutesToTaskTime(task, minutes) {
   task.notified = false;
   saveAndRender();
 }
+
+/* ---------- JSONBin sync ---------- */
 
 async function syncToJsonBin() {
   if (!JSONBIN_BIN_ID || !JSONBIN_MASTER_KEY) return alert('JSONBin não configurado');
@@ -376,9 +443,11 @@ function handleImportFile(file) {
 }
 
 function clearDoneTasks() {
-  DATA.tasks = DATA.tasks.filter(t => !t.done);
+  DATA.tasks = (DATA.tasks || []).filter(t => !t.done);
   saveAndRender();
 }
+
+/* ---------- UI wiring (robusto) ---------- */
 
 function wireUI() {
   el('btnRegister').onclick = async () => {
@@ -408,6 +477,10 @@ function wireUI() {
       renderTasks();
       setStatus('logado');
       setTimeout(() => { el('title')?.focus(); }, 120);
+      // pedir permissão de notificação após login (opcional): melhora UX
+      requestNotificationPermissionIfNeeded().then(p => {
+        if (p === 'granted') setStatus('notificações permitidas');
+      });
     } catch (e) {
       el('authMsg').textContent = 'Erro: ' + e.message;
     }
@@ -438,7 +511,9 @@ function wireUI() {
     };
   });
 
-  el('bell').onclick = () => {
+  el('bell').onclick = async () => {
+    // pedir permissão se necessário antes de tentar notificar
+    await requestNotificationPermissionIfNeeded();
     if (lastTriggeredTask) {
       ringBellVisual();
       playBeepSequence();
@@ -473,6 +548,7 @@ function wireUI() {
     el('app').setAttribute('aria-hidden', 'true');
   }
 
+  // Intervalo seguro para checar alarmes
   setInterval(checkAlarms, 10 * 1000);
   setTimeout(checkAlarms, 1000);
 
@@ -493,17 +569,42 @@ function wireUI() {
   el('clearDone').onclick = clearDoneTasks;
   el('exportBtn').onclick = exportData;
   el('importBtn').onclick = () => el('importFile')?.click();
-  el('importFile').addEventListener('change', (ev) => {
-    const file = ev.target.files && ev.target.files[0];
-    handleImportFile(file);
-    ev.target.value = '';
-  });
 
+  // Protege se input file não existe no HTML (evita erro que quebrava o script)
+  const importFileEl = el('importFile');
+  if (importFileEl) {
+    importFileEl.addEventListener('change', (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      handleImportFile(file);
+      ev.target.value = '';
+    });
+  }
+
+  // Proteções de teclado / acessibilidade
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hideOverlay();
   });
+
+  // Botões de sync (se presentes)
+  const btnSync = el('btnSync');
+  if (btnSync) {
+    btnSync.onclick = async () => {
+      if (!CURRENT) return alert('Faça login para sincronizar');
+      if (!confirm('Deseja sincronizar seus dados atuais no JSONBin?')) return;
+      await syncToJsonBin();
+    };
+  }
+  const btnPull = el('btnPull');
+  if (btnPull) {
+    btnPull.onclick = async () => {
+      if (!CURRENT) return alert('Faça login para baixar dados');
+      if (!confirm('Deseja baixar os dados do JSONBin e substituir os locais?')) return;
+      await pullFromJsonBin();
+    };
+  }
 }
 
 wireUI();
 
+// debug helpers
 window._debug = { loadUsers, loadUserData, saveUserData, checkAlarms, DATA, syncToJsonBin, pullFromJsonBin };
