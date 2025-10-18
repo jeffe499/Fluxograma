@@ -1,8 +1,8 @@
 /* script.js — com overlay full-screen que mostra título + descrição e snooze */
 
 /* ====== CONFIG (JSONBin opcionais) ====== */
-const JSONBIN_BIN_ID = '';
-const JSONBIN_MASTER_KEY = '';
+const JSONBIN_BIN_ID = '68f2dc8c43b1c97be96dfc5c';
+const JSONBIN_MASTER_KEY = '$2a$10$3LMKVXiRGejkqgkKPn1PLue3gId0dWY/xN2fjHq1RCtx8UPYZicfq';
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
 
 const LS_USERS = 'ef_users';
