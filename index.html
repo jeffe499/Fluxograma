@@ -5,146 +5,174 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#07101a" />
   <title>EstudaFácil — Notificações em tela inteira</title>
-
-  <!-- estilos externos -->
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- ícone (opcional) -->
   <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Skip link para quem usa teclado -->
-  <a class="skip-link" href="#main" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
-    Ir para o conteúdo
-  </a>
+  <a class="skip-link" href="#main">Ir para o conteúdo</a>
 
   <div class="container" id="root">
-    <header role="banner" aria-label="Cabeçalho principal">
-      <h1>EstudaFácil <small class="muted">(simples)</small></h1>
+    <header role="banner" aria-label="Cabeçalho principal" class="site-header">
+      <div class="brand">
+        <h1>EstudaFácil <span class="badge">simples</span></h1>
+        <p class="tagline">Organize estudos • Receba notificações amigáveis</p>
+      </div>
 
-      <div class="right" aria-hidden="false">
-        <!-- status com aria-live para leitores de tela -->
-        <div id="status" class="muted" aria-live="polite">pronto</div>
-
-        <!-- sino: visual + acessível -->
-        <button id="bell" title="Notificações" aria-label="Abrir notificações" aria-haspopup="dialog">
+      <div class="controls" aria-hidden="false">
+        <div id="status" class="status" aria-live="polite">pronto</div>
+        <button id="bell" title="Notificações" aria-label="Abrir notificações" aria-haspopup="dialog" class="icon-btn">
           🔔
         </button>
       </div>
     </header>
 
     <main id="main" role="main" aria-labelledby="main-title">
-      <h2 id="main-title" class="sr-only" style="height:0;margin:0;padding:0;overflow:hidden;">Aplicativo EstudaFácil</h2>
+      <h2 id="main-title" class="sr-only">Aplicativo EstudaFácil</h2>
 
-      <!-- AUTH -->
-      <section id="auth" class="card" aria-labelledby="auth-title">
+      <section id="auth" class="card auth-card" aria-labelledby="auth-title">
         <h3 id="auth-title">Entrar / Registrar</h3>
 
         <form id="authForm" class="form" onsubmit="return false;" aria-describedby="authMsg">
-          <div class="row" style="align-items:center;">
-            <label for="username" class="small muted" style="min-width:72px">Usuário</label>
-            <input id="username" name="username" placeholder="usuário" autocomplete="username" />
+          <div class="field-row">
+            <label for="username" class="label">Usuário</label>
+            <input id="username" name="username" placeholder="usuário" autocomplete="username" required />
           </div>
 
-          <div class="row" style="align-items:center;margin-bottom:6px;">
-            <label for="password" class="small muted" style="min-width:72px">Senha</label>
-            <input id="password" name="password" type="password" placeholder="senha" autocomplete="current-password" />
+          <div class="field-row">
+            <label for="password" class="label">Senha</label>
+            <input id="password" name="password" type="password" placeholder="senha" autocomplete="current-password" required />
           </div>
 
-          <div class="row">
-            <button id="btnLogin" class="btn" type="button">Entrar</button>
-            <button id="btnRegister" class="btn alt" type="button">Registrar</button>
+          <div class="actions-row">
+            <button id="btnLogin" class="btn primary" type="button">Entrar</button>
+            <button id="btnRegister" class="btn" type="button">Registrar</button>
           </div>
 
-          <div id="authMsg" class="small muted" role="status" aria-live="polite"></div>
+          <div id="authMsg" class="note" role="status" aria-live="polite"></div>
         </form>
       </section>
 
-      <!-- APP principal (inicialmente hidden) -->
-      <section id="app" class="card hidden" aria-hidden="true">
-        <div class="top">
-          <div>
+      <section id="app" class="card app-card hidden" aria-hidden="true">
+        <div class="app-top">
+          <div class="profile">
             <strong id="who">—</strong>
+            <div class="meta small muted" id="ownerMeta">Sessão ativa</div>
           </div>
 
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div class="app-actions">
             <button id="btnLogout" class="btn alt" type="button">Sair</button>
-            <button id="btnSync" class="btn" type="button">Sync (JSONBin)</button>
+            <button id="btnSync" class="btn" type="button" aria-haspopup="menu">Sync (JSONBin)</button>
           </div>
         </div>
 
-        <!-- Form de tarefas -->
-        <form id="taskForm" class="form" onsubmit="return false;" aria-label="Adicionar tarefa">
-          <label for="title" class="sr-only">Título</label>
-          <input id="title" name="title" placeholder="Título (ex: Álgebra)" required />
+        <form id="taskForm" class="form task-form" onsubmit="return false;" aria-label="Adicionar tarefa">
+          <div class="grid">
+            <div class="col">
+              <label for="title" class="sr-only">Título</label>
+              <input id="title" name="title" placeholder="Título (ex: Álgebra)" required />
+            </div>
 
-          <label for="description" class="sr-only">Descrição</label>
-          <input id="description" name="description" placeholder="Descrição (opcional)" />
+            <div class="col">
+              <label for="subject" class="sr-only">Disciplina</label>
+              <select id="subject" name="subject" aria-label="Disciplina"></select>
+            </div>
 
-          <label for="subject" class="sr-only">Disciplina</label>
-          <select id="subject" name="subject" aria-label="Disciplina"></select>
+            <div class="col">
+              <label for="date" class="sr-only">Data</label>
+              <input id="date" name="date" type="date" />
+            </div>
 
-          <label for="date" class="sr-only">Data</label>
-          <input id="date" name="date" type="date" />
+            <div class="col">
+              <label for="time" class="sr-only">Hora</label>
+              <input id="time" name="time" type="time" />
+            </div>
 
-          <label for="time" class="sr-only">Hora</label>
-          <input id="time" name="time" type="time" />
+            <div class="col small-input">
+              <label for="duration" class="sr-only">Duração</label>
+              <input id="duration" name="duration" type="number" placeholder="min" min="1" />
+            </div>
 
-          <label for="duration" class="sr-only">Duração em minutos</label>
-          <input id="duration" name="duration" type="number" placeholder="min" style="width:90px" min="1" />
+            <div class="col actions-col">
+              <button id="addBtn" class="btn primary" type="button">Adicionar</button>
+            </div>
+          </div>
 
-          <button id="addBtn" class="btn" type="button">Adicionar</button>
+          <div class="extra-row">
+            <input id="search" placeholder="Pesquisar tarefas..." aria-label="Pesquisar tarefas" />
+            <div class="filter-group" role="tablist" aria-label="Filtrar tarefas">
+              <button class="filter active" data-filter="all" role="tab" aria-selected="true">Todas</button>
+              <button class="filter" data-filter="upcoming" role="tab" aria-selected="false">Próximas</button>
+              <button class="filter" data-filter="done" role="tab" aria-selected="false">Concluídas</button>
+            </div>
+          </div>
         </form>
 
-        <!-- área onde as tarefas são renderizadas -->
+        <div class="subject-legend" id="subjectLegend" aria-hidden="false"></div>
+
         <div id="tasks" class="tasks" aria-live="polite" aria-label="Lista de tarefas"></div>
+
+        <div class="bottom-actions">
+          <button id="clearDone" class="btn alt">Limpar concluídas</button>
+          <div class="spacer"></div>
+          <button id="exportBtn" class="btn">Exportar</button>
+          <button id="importBtn" class="btn alt">Importar</button>
+        </div>
       </section>
 
-      <!-- dica / observação -->
-      <section class="card small muted" aria-hidden="false">
-        <strong>Dica:</strong> este protótipo salva localmente. Se quiser usar JSONBin, abra `script.js` e preencha `JSONBIN_BIN_ID` e `JSONBIN_MASTER_KEY` (somente para testes).
+      <section class="card tip-card">
+        <div class="tip-title">Dica</div>
+        <div class="tip-body">O protótipo salva localmente. Para usar JSONBin, configure no arquivo <code>script.js</code> os campos JSONBIN_BIN_ID e JSONBIN_MASTER_KEY.</div>
       </section>
     </main>
 
-    <footer class="muted" role="contentinfo">
-      Protótipo simples • Não use chaves privadas em produção
+    <footer class="site-footer" role="contentinfo">
+      Protótipo EstudaFácil • Não use chaves privadas em produção
     </footer>
   </div>
 
-  <!-- Overlay full-screen de notificação (role=dialog) -->
   <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overlayTitle" aria-describedby="overlayDescription">
     <div class="overlay-card" role="document">
       <div class="overlay-header">
         <div id="overlayTitle" class="overlay-title">Título da tarefa</div>
-        <button id="overlayClose" class="btn alt" type="button" aria-label="Fechar">Fechar</button>
+        <div class="overlay-controls">
+          <button id="overlayClose" class="btn alt" type="button" aria-label="Fechar">Fechar</button>
+        </div>
       </div>
 
       <div class="overlay-body">
-        <div class="overlay-time muted" id="overlayTime">00:00</div>
-        <textarea id="overlayDescription" readonly placeholder="Sem descrição" aria-readonly="true"></textarea>
+        <div class="overlay-meta">
+          <div id="overlayTime" class="overlay-time">00:00</div>
+        </div>
+
+        <textarea id="overlayDescription" readonly aria-readonly="true" placeholder="Sem descrição"></textarea>
       </div>
 
       <div class="overlay-actions">
-        <button id="snooze5" class="btn" type="button">Adiar 5 min</button>
+        <div class="snooze-group" role="radiogroup" aria-label="Tempo de adiar">
+          <button class="btn snooze" data-min="5" type="button">Adiar 5 min</button>
+          <button class="btn snooze" data-min="10" type="button">Adiar 10 min</button>
+          <button class="btn snooze" data-min="30" type="button">Adiar 30 min</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Template leve para itens de tarefa (opcional, não obrigatório pro seu script atual) -->
   <template id="task-template">
-    <div class="task" role="article">
-      <div>
-        <strong class="task-title"></strong>
-        <div class="small muted task-meta"></div>
+    <article class="task" role="article">
+      <div class="task-left">
+        <span class="subject-dot" aria-hidden="true"></span>
+        <div>
+          <strong class="task-title"></strong>
+          <div class="task-meta small muted"></div>
+        </div>
       </div>
-      <div>
-        <button class="btn alt task-mark" type="button">Marcar</button>
-        <button class="btn alt task-delete" type="button">Excluir</button>
+      <div class="task-actions">
+        <button class="btn mark" type="button" aria-pressed="false">Marcar</button>
+        <button class="btn alt delete" type="button">Excluir</button>
       </div>
-    </div>
+    </article>
   </template>
 
-  <!-- script externo (defer) -->
   <script src="script.js" defer></script>
 </body>
 </html>
