@@ -61,7 +61,8 @@
 
           <div class="app-actions">
             <button id="btnLogout" class="btn alt" type="button">Sair</button>
-           </div>
+            <button id="btnSync" class="btn" type="button" aria-haspopup="menu">Sync (JSONBin)</button>
+          </div>
         </div>
 
         <form id="taskForm" class="form task-form" onsubmit="return false;" aria-label="Adicionar tarefa">
@@ -96,6 +97,12 @@
             </div>
           </div>
 
+          <!-- Campo de descrição (nova funcionalidade) -->
+          <div class="field-row description-row">
+            <label for="description" class="label">Descrição (opcional)</label>
+            <textarea id="description" name="description" placeholder="Descrição da tarefa — ex: revisar capítulo 3, exercícios 1-10" rows="3"></textarea>
+          </div>
+
           <div class="extra-row">
             <input id="search" placeholder="Pesquisar tarefas..." aria-label="Pesquisar tarefas" />
             <div class="filter-group" role="tablist" aria-label="Filtrar tarefas">
@@ -120,8 +127,7 @@
 
       <section class="card tip-card">
         <div class="tip-title">Dica</div>
-        <div class="tip-body">Após o login, você pode adicionar tarefas preenchendo o título, disciplina, data, hora e duração, e clicando em **Adicionar**. Use a busca e os filtros (**Todas**, **Próximas**, **Concluídas**) para organizar sua lista. Clique em uma tarefa para ver os detalhes, adiar ou marcar como concluída. O botão **🔔** mostra notificações e alertas de horário. Você também pode **importar** e **exportar** tarefas em arquivo `.json` para backup, **limpar concluídas** e **sair** quando quiser — tudo é salvo automaticamente no seu navegador.
-</div>
+        <div class="tip-body">Após o login, você pode adicionar tarefas preenchendo o título, disciplina, data, hora, duração e descrição, e clicando em **Adicionar**. Use a busca e os filtros (**Todas**, **Próximas**, **Concluídas**) para organizar sua lista. Clique em uma tarefa para ver os detalhes, adiar ou marcar como concluída. O botão **🔔** mostra notificações e alertas de horário. Você também pode **importar** e **exportar** tarefas em arquivo `.json` para backup, **limpar concluídas** e **sair** quando quiser — tudo é salvo automaticamente no seu navegador.</div>
       </section>
     </main>
 
@@ -130,6 +136,7 @@
     </footer>
   </div>
 
+  <!-- Dialog overlay para notificação / detalhes -->
   <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overlayTitle" aria-describedby="overlayDescription">
     <div class="overlay-card" role="document">
       <div class="overlay-header">
@@ -157,6 +164,7 @@
     </div>
   </div>
 
+  <!-- Template da tarefa -->
   <template id="task-template">
     <article class="task" role="article">
       <div class="task-left">
@@ -172,6 +180,9 @@
       </div>
     </article>
   </template>
+
+  <!-- input para import (escondido) -->
+  <input id="importFile" type="file" accept="application/json" style="display:none" />
 
   <script src="script.js" defer></script>
 </body>
